@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Story Branch · 短剧创作工作台</title><link rel="stylesheet" href="/static/workspace.css"></head>
+<body>
+<header><a class="brand" href="/">✦ <span>Story Branch<small>海外短剧 · 人机协同创作</small></span></a><div class="header-actions"><span id="mode" class="badge">加载中</span><button id="library-button">提示词库</button><button id="settings-button">模型设置</button></div></header>
+<div id="notice" role="status" aria-live="polite"></div>
+<main class="layout">
+  <aside class="sidebar">
+    <div class="label-row"><h2>创作项目</h2><button id="new-button" class="primary">＋ 新建</button></div>
+    <div id="projects" class="item-list"></div>
+    <section id="branch-section" hidden><div class="label-row"><h2>故事分支</h2><button id="fork-button">＋ 分支</button></div><p class="muted small">从当前查看的版本分叉，自由尝试另一种可能。</p><div id="branches" class="item-list"></div>
+    <h2>版本轨迹</h2><div id="versions" class="version-list"></div></section>
+    <footer><span>SYE 6602 · 创作实验室</span><a href="/classic">打开原流程演示 ↗</a></footer>
+  </aside>
+  <section class="conversation">
+    <div id="welcome"><div class="eyebrow">A STORY CAN TAKE MANY PATHS</div><h1>让故事，<br>拥有更多可能。</h1><p>从一个想法开始，和 AI 一起推敲人物、冲突与对白。<br>保存每一次选择，也保留那些值得探索的岔路。</p><button id="welcome-new" class="primary large">开始一个故事 →</button><div class="intro-cards"><article><b>01 · 提示词库</b><p>从创意、人物到剧本诊断，使用并积累自己的创作方法。</p></article><article><b>02 · 对话演化</b><p>用自然语言提出修改，将每一轮结果沉淀为可编辑稿件。</p></article><article><b>03 · 分支与版本</b><p>从任意版本探索新方向，随时回看、对比和导出。</p></article></div></div>
+    <div id="session" hidden>
+      <div class="session-head"><div><div class="eyebrow" id="branch-label"></div><h1 id="project-title"></h1></div><button id="refresh-button">刷新</button></div>
+      <details class="brief"><summary>创作简报</summary><p id="brief-text"></p></details>
+      <div id="historical" class="history-banner" hidden>正在查看历史版本。创建分支后可从这里继续创作。</div>
+      <div id="chat" class="chat" aria-live="polite"></div>
+      <form id="chat-form" class="composer">
+        <div class="label-row"><label for="prompt-select">本轮创作指南</label><select id="prompt-select"><option value="">自由对话</option></select></div>
+        <details><summary>查看 / 调整本轮提示词</summary><textarea id="prompt-body" rows="4" maxlength="6000" aria-label="本轮提示词" placeholder="可使用提示词库，也可自己填写。"></textarea><button type="button" id="save-template">另存为个人模板</button></details>
+        <label for="instruction" class="sr-only">创作需求</label><textarea id="instruction" rows="3" maxlength="4000" placeholder="例如：为这个故事提出三个方向，突出女主角主动做出的选择。" required></textarea>
+        <div class="label-row"><span id="send-hint" class="muted small">每次完成回复都会保存新版本</span><button id="send-button" class="primary" type="submit">发送并保存 ↗</button></div>
+      </form>
+    </div>
+  </section>
+  <aside id="document-panel" class="document-panel" hidden>
+    <div class="label-row"><div><div class="eyebrow">WORKING DOCUMENT</div><h2>创作稿件</h2></div><button id="export-button">导出 .md</button></div>
+    <div id="version-meta" class="muted small"></div>
+    <label for="document" class="sr-only">当前版本稿件</label><textarea id="document" spellcheck="false" placeholder="生成后的稿件会出现在这里。你也可以直接写作，保存为人工编辑版本。"></textarea>
+    <div class="label-row"><span id="dirty-status" class="muted small">已保存</span><button id="save-document">保存为新版本</button></div>
+    <details class="compare"><summary>版本对照 / 生成记录</summary><label for="compare-select">与另一版本对照</label><select id="compare-select"></select><pre id="compare-content"></pre><details><summary>本版本提示词与来源</summary><pre id="provenance"></pre></details></details>
+  </aside>
+</main>
+<dialog id="new-dialog"><form id="new-form"><div class="label-row"><h2>开始新项目</h2><button type="button" data-close="new-dialog">关闭</button></div><label>项目名称<input name="title" maxlength="100" required placeholder="例如：第二次开场"></label><label>创作简报<textarea name="brief" rows="8" maxlength="8000" required>目标市场：美国英语市场（待行业访谈验证）
+输出语言：英语；讨论语言：中文
+题材：都市情感
+受众：成年短剧观众
+故事种子：年轻制片人发现，竞争对手曾匿名帮助过自己。
+制作限制：4 位主要演员，2 个主要场景；每集约 90 秒。
+阶段目标：三个故事方向、三集大纲、第一集剧本。</textarea></label><button class="primary" type="submit">创建项目</button></form></dialog>
+<dialog id="settings-dialog"><form id="settings-form" autocomplete="off"><div class="label-row"><h2>模型连接</h2><button type="button" data-close="settings-dialog">关闭</button></div><p class="muted">样例模式验证流程；DeepSeek 模式生成真实内容。</p><label>模式<select id="provider"><option value="demo">样例模式 · 无 API 调用</option><option value="deepseek">DeepSeek</option></select></label><label>模型名称<input id="model-name" value="deepseek-flash" required maxlength="100"></label><label>DeepSeek API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="填写密钥；留空则保留当前配置"></label><p id="key-status" class="muted small"></p><p class="muted small">密钥只保存在本机服务内存中，服务重启后需重新填写。保存设置不发起模型调用；发送创作需求时会调用并按账户计费。</p><div class="label-row"><button id="clear-key" type="button">清除密钥并使用样例</button><button class="primary" type="submit">保存配置</button></div></form></dialog>
+<dialog id="library-dialog" class="wide"><div class="label-row"><div><div class="eyebrow">PROMPT LIBRARY</div><h2>创作方法，也可以积累。</h2></div><button data-close="library-dialog">关闭</button></div><p class="muted">内置模板是初始样例，可按行业访谈结果调整。每次生成都会保存当时的提示词快照。</p><div id="library" class="library-grid"></div></dialog>
+<dialog id="template-dialog"><form id="template-form"><div class="label-row"><h2>另存为个人模板</h2><button type="button" data-close="template-dialog">关闭</button></div><label>模板名称<input id="template-title" maxlength="80" required></label><label>分类<input id="template-category" maxlength="30" value="自定义" required></label><label>提示词<textarea id="template-body" rows="9" maxlength="6000" required></textarea></label><button class="primary" type="submit">保存模板</button></form></dialog>
+<dialog id="fork-dialog"><form id="fork-form"><div class="label-row"><h2>探索一个新分支</h2><button type="button" data-close="fork-dialog">关闭</button></div><p id="fork-source" class="muted"></p><label>分支名称<input id="fork-name" maxlength="80" placeholder="例如：女主主动揭露真相" required></label><button class="primary" type="submit">创建并切换</button></form></dialog>
+<script src="/static/workspace.js"></script>
+</body></html>

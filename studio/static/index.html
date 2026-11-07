@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>短剧创作工作台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="brand-mark">S</div>
+      <div class="brand-copy">
+        <strong>短剧创作工作台</strong>
+        <span>Original short drama development</span>
+      </div>
+      <span id="mode-badge" class="mode-badge">检查生成模式…</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">SYE 6602 · 初步原型</p>
+          <h1>先选一个值得继续写的故事。</h1>
+          <p class="intro">填写创作简报，比较三个方向，再由你决定哪个方向进入三集大纲。每一步的选择都会保存，方便下次继续。</p>
+        </div>
+        <div class="progress" aria-label="当前开发进度">
+          <div class="progress-item active"><span>01</span><div><strong>故事方向</strong><small>已实现</small></div></div>
+          <div class="progress-item active"><span>02</span><div><strong>分集大纲</strong><small>已实现</small></div></div>
+          <div class="progress-item"><span>03</span><div><strong>首集初稿</strong><small>下一阶段</small></div></div>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <section class="panel brief-panel" aria-labelledby="brief-heading">
+          <div class="section-head"><div><p class="eyebrow">STEP 01</p><h2 id="brief-heading">创作简报</h2></div></div>
+          <form id="brief-form">
+            <div class="field-row">
+              <label>目标市场<input name="market" value="English-speaking market" required maxlength="100"></label>
+              <label>创作语言<input name="language" value="English" required maxlength="60"></label>
+            </div>
+            <div class="field-row">
+              <label>类型<input name="genre" value="Urban romance" required maxlength="80"></label>
+              <label>目标观众<input name="audience" value="Young adult vertical-drama viewers" required maxlength="150"></label>
+            </div>
+            <label>故事起点<textarea name="premise" rows="4" required maxlength="1000" placeholder="例如：一位年轻制片人发现竞争对手其实是儿时帮助过自己的人。"></textarea></label>
+            <label>制作限制（可选）<input name="production_limit" maxlength="300" placeholder="例如：不超过 4 位主要演员、2 个主要场景"></label>
+            <button type="submit" id="create-button" class="primary-button">生成三个故事方向 <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="resume">
+            <div><strong>继续已有项目</strong><small>项目编号保存在本机，也可以手动输入。</small></div>
+            <div class="resume-controls"><input id="project-id-input" aria-label="项目编号" placeholder="输入项目编号"><button id="load-button" type="button">读取</button></div>
+          </div>
+        </section>
+
+        <section class="workspace" aria-labelledby="workspace-heading">
+          <div class="workspace-heading"><div><p class="eyebrow">YOUR PROJECT</p><h2 id="workspace-heading">创作结果</h2></div><span id="project-id" class="project-id">尚未创建</span></div>
+          <div id="message" class="message" role="status" aria-live="polite"></div>
+          <div id="empty-state" class="empty-state"><div class="empty-icon">✦</div><h3>从一份简报开始</h3><p>系统会给出三个不同的故事方向。你来挑选，并决定是否继续展开。</p></div>
+          <div id="results" hidden>
+            <div class="result-heading"><div><p class="eyebrow">STEP 01 · CHOOSE</p><h3>故事方向</h3></div><span>选择后生成大纲</span></div>
+            <div id="concept-list" class="concept-list"></div>
+            <div class="action-bar">
+              <button id="outline-button" class="primary-button" type="button" disabled>根据所选方向生成三集大纲</button>
+            </div>
+            <div class="revise-box"><label for="revision-input">想换个方向？</label><div><input id="revision-input" maxlength="500" placeholder="例如：冲突更集中，减少角色数量"><button id="revise-button" type="button">重新生成</button></div></div>
+            <section id="outline-section" class="outline-section" hidden><p class="eyebrow">STEP 02 · OUTLINE</p><h3 id="outline-title">三集大纲</h3><div id="characters" class="characters"></div><div id="episodes" class="episodes"></div><p id="production-note" class="production-note"></p></section>
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer>本原型默认使用样例生成模式。启用 OpenRouter 后，生成结果仍需由编剧判断和修改。</footer>
+  </div>
+</body>
+</html>
