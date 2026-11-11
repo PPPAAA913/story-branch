@@ -19,13 +19,21 @@
 
 ### 1. 准备 Python 和项目文件
 
-安装 Python 3.12，安装时选择将 Python 加入 PATH。安装后重新打开 PowerShell，检查：
+安装 Python 3.12 或 3.13 的64位版本。本项目已在 Windows 的 Python 3.12.14 和 3.13.17 上验证；新安装可选择 Python 3.13。下载入口：[Python 官方 Windows 下载页](https://www.python.org/downloads/windows/)。安装时选择将 Python 加入 PATH。安装后完全关闭旧的 PowerShell、Windows Terminal 或 VS Code 终端，再重新打开检查：
 
 ```powershell
 python --version
 ```
 
-如果显示未找到命令或打开 Microsoft Store，先检查 Python 安装与 PATH；如果 `py -3.12 --version` 可用，可在下面创建环境时改用 `py -3.12 -m venv .venv`。
+如果显示未找到命令或打开 Microsoft Store，先执行 `Get-Command python -All` 查看命令位置。指向 `Microsoft\\WindowsApps` 时可能只是商店占位入口，并不说明 Python 已安装。若 `py -3.13 --version` 可用，可在下面创建环境时改用 `py -3.13 -m venv .venv`；使用3.12的成员替换版本号即可。`py` 是可选启动器，没有它也可以用 `python` 完成全部步骤。
+
+如果 Python 已安装但旧终端尚未刷新 PATH，也可以直接调用已确认存在的解释器，例如默认用户目录的3.13：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe" --version
+```
+
+该路径只适用于安装在此目录的电脑，不要把它当成所有安装方式的固定路径。
 
 打开本仓库 https://github.com/PPPAAA913/story-branch ，点击绿色 **Code → Download ZIP**，下载后解压。进入解压后的项目目录，必须能看到 `README.md`、`requirements.txt` 和 `studio` 文件夹。不要直接在压缩包内运行。
 
@@ -57,6 +65,15 @@ python -m venv .venv
 ```
 
 这里始终直接调用虚拟环境的 Python，不需要执行激活脚本，也不需要修改 PowerShell 执行策略。安装依赖需要联网。出现红色报错时先保留完整错误信息，不要继续后续步骤。
+
+如果默认下载源速度慢或超时，可以仅对这一次安装使用清华镜像，不修改电脑的全局pip配置：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt --index-url https://pypi.tuna.tsinghua.edu.cn/simple --timeout 30 --retries 2
+.\.venv\Scripts\python.exe -m pip check
+```
+
+最后应显示 `No broken requirements found.`。Python安装包本身如从镜像下载，应核对对应版本在官网公布的校验值和数字签名；它与上面的依赖镜像是两回事。
 
 ### 4. 初始化五人账号
 
@@ -124,6 +141,8 @@ python -m venv .venv
 |---|---|
 | 找不到 requirements.txt 或 studio | 检查第2步，终端必须位于项目根目录 |
 | 找不到 .venv 中的 python.exe | 第3步环境创建尚未成功，查看其报错 |
+| python 打开商店，或安装后仍找不到命令 | 完全退出终端应用再打开；执行 `Get-Command python -All` 检查路径，必要时用实际解释器的完整路径创建环境 |
+| Python安装器报0x80070003 | 保存安装日志，定位找不到的目录或缓存包；这是安装器问题，需要单独处理，反复安装项目依赖无法修复 |
 | 安装依赖超时 | 检查网络，重试依赖安装；把完整报错交给技术同学 |
 | 端口占用 / WinError 10048 | 先检查是否已有本项目服务；不要重复启动。也可将启动参数改为 `--port 8767`，浏览器同步改为8767 |
 | 浏览器无法连接 | 确认服务终端仍运行、地址和端口一致，不要只双击HTML文件 |
