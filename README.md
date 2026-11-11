@@ -2,18 +2,140 @@
 
 面向英语短剧创作的课程原型，使用 FastAPI、SQLite 与原生 JavaScript。当前交付为五人协作与六阶段创作版，支持独立阶段稿件、整条路线分支、人工确认和上游变更检查。
 
-## 本地启动
+## 小组成员先看哪些文件
+
+| 文件 | 主要内容 | 建议阅读者 |
+|---|---|---|
+| [README.md](README.md) | 首次安装、账号初始化、启动、模型配置与故障排查 | 所有人先看 |
+| [TEAM_QUICKSTART.md](TEAM_QUICKSTART.md) | 按姓名分工、操作步骤与交付物 | 所有人 |
+| [VALIDATION.md](VALIDATION.md) | 验收清单、问题记录和测试优先级 | 吕兴治、赵哲、彭奥 |
+| [WRITING_SKILLS.md](WRITING_SKILLS.md) | 写作方法来源、提示词适配和对照试写 | 王司恺、吕兴治 |
+| [ROADMAP.md](ROADMAP.md) | 项目范围、后续工作和汇报排期 | 所有人，尤其PPT负责人 |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | 技术实现、开发与验证记录 | 彭奥、赵哲；整理技术汇报时参考 |
+
+## 初次部署：先在自己的电脑运行（Windows）
+
+本节适合第一次接触项目的成员。先用样例模式跑通，不需要云服务器、Docker 或 DeepSeek 密钥。整个过程在自己的电脑完成；各人安装得到的是独立数据库，不会自动共享项目。
+
+### 1. 准备 Python 和项目文件
+
+安装 Python 3.12，安装时选择将 Python 加入 PATH。安装后重新打开 PowerShell，检查：
+
+```powershell
+python --version
+```
+
+如果显示未找到命令或打开 Microsoft Store，先检查 Python 安装与 PATH；如果 `py -3.12 --version` 可用，可在下面创建环境时改用 `py -3.12 -m venv .venv`。
+
+打开本仓库 https://github.com/PPPAAA913/story-branch ，点击绿色 **Code → Download ZIP**，下载后解压。进入解压后的项目目录，必须能看到 `README.md`、`requirements.txt` 和 `studio` 文件夹。不要直接在压缩包内运行。
+
+也可以用已安装的 Git 下载：
+
+```powershell
+git clone https://github.com/PPPAAA913/story-branch.git
+cd story-branch
+```
+
+### 2. 在正确目录打开 PowerShell
+
+如果使用 ZIP，在资源管理器打开上述项目文件夹，在地址栏输入 `powershell` 并回车。执行：
+
+```powershell
+Get-Location
+Test-Path .\requirements.txt
+```
+
+第二条应显示 `True`；如果为 `False`，说明尚未进入项目根目录。
+
+### 3. 创建环境并安装依赖
+
+逐行执行，上一条成功后再执行下一条：
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python -m studio.bootstrap
-.venv\Scripts\python -m uvicorn studio.main:app --host 127.0.0.1 --port 8766
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-打开 http://127.0.0.1:8766/ ，使用初始化命令生成的账号登录。初始化命令只输出凭据文件路径，不打印密码；文件在忽略的 `data/` 下，请分别分发账号，不上传整个文件。重复初始化不会重置已有密码。
+这里始终直接调用虚拟环境的 Python，不需要执行激活脚本，也不需要修改 PowerShell 执行策略。安装依赖需要联网。出现红色报错时先保留完整错误信息，不要继续后续步骤。
 
-账号：`peng_ao`（管理员）、`lyu_xingzhi`、`xu_xiaodong`、`wang_sikai`、`zhao_zhe`。账号显示姓名，不包含学号。当前仅有一个小组，新项目默认共享给全部预建成员；没有公开注册或外部访客账号。
+### 4. 初始化五人账号
+
+```powershell
+.\.venv\Scripts\python.exe -m studio.bootstrap
+```
+
+成功后终端会显示一个 `data\initial-credentials-……txt` 文件的完整路径。在资源管理器中打开该文件，按每行的姓名、账号、随机密码找到自己的登录信息。没有统一默认密码，不要把示例文字当密码。
+
+账号为 `peng_ao`（管理员）、`lyu_xingzhi`、`xu_xiaodong`、`wang_sikai`、`zhao_zhe`。在独立本机安装中，需要使用本机生成的密码；另一台电脑生成的密码不一定相同。需要配置模型时，由本机安装负责人使用初始化的管理员账号。
+
+凭据文件不要提交 GitHub、发群或作为截图公开。统一服务器部署时，由管理员分别分发每人的账号密码。重复初始化不会重置已有密码；看到“accounts already exist”时，应找原先生成的凭据文件。
+
+### 5. 启动服务并登录
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn studio.main:app --host 127.0.0.1 --port 8766
+```
+
+看到 `Uvicorn running on http://127.0.0.1:8766` 后，保持这个终端窗口打开，在浏览器地址栏输入：
+
+**http://127.0.0.1:8766/**
+
+使用第4步的账号密码登录。这里是普通 `http`，不是 `https`。`127.0.0.1` 指当前电脑，这个地址不能直接发给异地组员访问。五个账号共享的是当前这个服务的数据；不同电脑各自运行的服务互不共享。
+
+### 6. 做一次不收费的样例检查
+
+1. 确认页面顶部显示“样例模式”。
+2. 点击“新建”，填写项目名和简报。
+3. 检查简报后点击“检查完成 · 确认本阶段”。
+4. 进入“故事方向”，输入“生成三个故事方向”，点击发送。
+5. 确认回复明确标有固定样例，并出现新版本。
+6. 在右侧修改一句文字，保存为新版本，刷新检查内容仍在。
+
+样例只验证流程，不代表模型写作质量。后续可按下面的六阶段说明继续试用。
+
+### 7. 接入真实 DeepSeek（需要时再做）
+
+1. 准备自己可用的 DeepSeek API Key，确认账户有余额、账户可用模型名称。
+2. 用 `peng_ao` 管理员登录，打开“模型设置”。
+3. 选择 DeepSeek，填写账户可用的模型名称和 API Key，保存配置。当前默认模型名只是预填值，需按真实账户核对。
+4. 先发送一个短任务，确认得到非固定样例的回复，检查版本保存及账户消耗，再跑完整剧本流程。
+
+保存设置本身不会调用模型。发送任务会产生账户计费；接口已接入，但本项目尚未完成真实账户联调，不保证只输入密钥就一定成功。界面填写的密钥只在当前服务进程有效，重启后需重新配置。普通组员在统一服务中不需要各自填写密钥。
+
+本地 Python 启动不会自动读取 `.env` 文件；初次使用优先通过界面配置。服务器长期配置通过环境变量完成，Docker Compose 才会按现有配置读取 `.env`。
+
+### 8. 停止、下次启动和备份
+
+在运行服务的终端按 `Ctrl+C` 停止服务。下次打开同一项目目录的 PowerShell，只需重新执行第5步的启动命令，不必重新安装和初始化。
+
+已保存项目默认在 `data\projects.db` 中。不要删除 `data` 文件夹，不要用新的下载目录替换旧目录中的数据。未保存草稿只暂存在当前浏览器标签页；关闭标签页或退出登录前先保存。
+
+更新代码前，在项目目录运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m studio.backup
+```
+
+终端会显示备份路径。备份与账号信息一样需要私下保管；初次更新建议让彭奥或赵哲协助保留数据再替换代码。
+
+### 常见问题
+
+| 现象 | 处理 |
+|---|---|
+| 找不到 requirements.txt 或 studio | 检查第2步，终端必须位于项目根目录 |
+| 找不到 .venv 中的 python.exe | 第3步环境创建尚未成功，查看其报错 |
+| 安装依赖超时 | 检查网络，重试依赖安装；把完整报错交给技术同学 |
+| 端口占用 / WinError 10048 | 先检查是否已有本项目服务；不要重复启动。也可将启动参数改为 `--port 8767`，浏览器同步改为8767 |
+| 浏览器无法连接 | 确认服务终端仍运行、地址和端口一致，不要只双击HTML文件 |
+| 账号或密码错误 | 查本机凭据文件，避免复制空格；GitHub账号不是平台账号 |
+| 登录次数过多 | 等待15分钟，核对密码后再试 |
+| 没有“模型设置”按钮 | 普通成员不显示，需管理员账号 |
+| 模型401 / 402 / 429 | 分别检查密钥、账户余额、请求频率；不把密钥贴进问题截图 |
+| 一直提示样例 | 检查模型设置是否切换并保存；服务重启后界面配置会丢失 |
+| 下游不能生成 | 先保存并确认前序阶段；“待检查”需要人工核对后确认或重生成 |
+| 另一位成员看不到项目 | 确认是否访问同一个服务；各自本机运行时数据不共享 |
+
+macOS/Linux成员可在项目目录用 `python3 -m venv .venv` 创建环境，再将上述 `.\.venv\Scripts\python.exe` 替换为 `.venv/bin/python`；其余模块名和端口不变。当前浏览器验收主要在Windows完成，其他系统需由使用者实际验证。
 
 ## 六阶段使用方法
 
@@ -64,13 +186,13 @@ docker compose run --rm app python -m studio.bootstrap
 docker compose up -d
 ```
 
-数据库及初始化凭据保存在持久卷 `/app/data`，不能使用 `docker compose down -v` 保留数据。当前端口只绑定服务器回环地址，在线部署还需配置 HTTPS 入口、实际允许域名与 `STUDIO_COOKIE_SECURE=1`。反向代理需传递正确 Host，并仅信任指定代理的转发头。预算、供应商与两地网络测试另行确认。
+数据库及初始化凭据保存在持久卷 `/app/data`；需要保留数据时不要执行 `docker compose down -v`，因为它会删除持久卷。当前端口只绑定服务器回环地址，在线部署还需配置 HTTPS 入口、实际允许域名与 `STUDIO_COOKIE_SECURE=1`。反向代理需传递正确 Host，并仅信任指定代理的转发头。预算、供应商与两地网络测试另行确认。
 
 上线前仍需完成调用限额、真实 API 验证、备份恢复和实际访问测试。当前不能宣称已上线。
 
 ## 测试与后续
 
-从仓库目录执行 `python -m unittest discover -s tests -v`。当前 39 项测试通过；另完成双账号浏览器验证：登录、权限、共享项目、冲突草稿另存、作者记录、刷新恢复、退出与窄屏布局。
+从仓库目录执行 `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`（Windows）。当前 39 项测试通过；另完成双账号浏览器验证：登录、权限、共享项目、冲突草稿另存、作者记录、刷新恢复、退出与窄屏布局。
 
 六阶段独立稿件、完整路线快照和下游待检查标记已完成；逐行差异、调用统计与限额、真实 API 联调和上线仍待完成。详细排期、真实分工和验收边界见 [ROADMAP.md](ROADMAP.md) 与 [DEVELOPMENT.md](DEVELOPMENT.md)。
 
