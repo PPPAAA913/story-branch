@@ -72,6 +72,8 @@ class AuthStore:
         with self.connect() as c:
             c.execute("DELETE FROM sessions WHERE expires < ?", (instant,))
             c.execute("DELETE FROM login_attempts WHERE bucket=?", ("user:" + username,))
+            # Successful logins must not exhaust the shared campus/NAT IP budget.
+            c.execute("UPDATE login_attempts SET count=MAX(0,count-1) WHERE bucket=?", ("ip:" + address,))
             c.execute("INSERT INTO sessions VALUES(?,?,?)", (hashlib.sha256(token.encode()).hexdigest(), user["id"], instant + 43200))
         return token, None
 

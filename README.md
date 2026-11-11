@@ -1,4 +1,4 @@
-# Story Branch · 短剧创作工作台 v0.5
+# Story Branch · 短剧创作工作台 v0.5.1
 
 面向英语短剧创作的课程原型，使用 FastAPI、SQLite 与原生 JavaScript。当前交付为五人协作与六阶段创作版，支持独立阶段稿件、整条路线分支、人工确认和上游变更检查。
 
@@ -70,8 +70,12 @@ docker compose up -d
 
 ## 测试与后续
 
-从仓库目录执行 `python -m unittest discover -s tests -v`。当前 35 项测试通过；另完成双账号浏览器验证：登录、权限、共享项目、冲突草稿另存、作者记录、刷新恢复、退出与窄屏布局。
+从仓库目录执行 `python -m unittest discover -s tests -v`。当前 39 项测试通过；另完成双账号浏览器验证：登录、权限、共享项目、冲突草稿另存、作者记录、刷新恢复、退出与窄屏布局。
 
 六阶段独立稿件、完整路线快照和下游待检查标记已完成；逐行差异、调用统计与限额、真实 API 联调和上线仍待完成。详细排期、真实分工和验收边界见 [ROADMAP.md](ROADMAP.md) 与 [DEVELOPMENT.md](DEVELOPMENT.md)。
 
 仓库禁止提交数据库、账号凭据、API 密钥及 `.env`。公开源码不代表应用已经公开部署。
+
+## 小组操作与备份
+
+按姓名的简要指南见 [TEAM_QUICKSTART.md](TEAM_QUICKSTART.md)。运行 `python -m studio.backup` 可创建一致性快照并检查完整性；默认写入忽略的 data/backups。恢复时先复制备份，再将 STUDIO_DB_PATH 指向副本并用独立端口启动核对，避免覆盖运行中的数据库。

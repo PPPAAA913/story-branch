@@ -126,7 +126,7 @@ $('settings-form').onsubmit=e=>{e.preventDefault();run(async()=>{
   S.settings=await api('/settings',{mode:$('provider').value,model:$('model-name').value,api_key:key});renderSettings();$('settings-dialog').close();notify('配置已保存。可发送创作需求；本次未发起模型调用。');
 });};
 $('clear-key').onclick=()=>run(async()=>{S.settings=await api('/settings',{mode:'demo',model:$('model-name').value,clear_key:true});$('api-key').value='';renderSettings();notify('密钥已从当前服务内存清除。');});
-$('new-form').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));run(async()=>{const p=await api('/projects',data);S.projects=await api('/projects');S.stage='brief';load(p);$('new-dialog').close();notify('项目已创建，选择指南并开始对话。');});};
+$('new-form').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));run(async()=>{const p=await api('/projects',data);S.projects=await api('/projects');S.stage='brief';$('writing-mode').value='write';$('prompt-select').value='';$('prompt-body').value='';$('instruction').value='';load(p);$('new-dialog').close();notify('项目已创建，选择指南并开始对话。');});};
 $('prompt-select').onchange=()=>{$('prompt-body').value=S.prompts.find(p=>p.id===$('prompt-select').value)?.body||'';};
 $('save-template').onclick=()=>template(S.prompts.find(p=>p.id===$('prompt-select').value)?.title||'我的创作指南','自定义',$('prompt-body').value);
 $('template-form').onsubmit=e=>{e.preventDefault();run(async()=>{const p=await api('/prompts',{title:$('template-title').value,category:$('template-category').value,body:$('template-body').value});S.prompts=await api('/prompts');renderPrompts();$('prompt-select').value=p.id;$('prompt-body').value=p.body;$('template-dialog').close();notify('小组模板已保存，后续项目也可使用。');});};
