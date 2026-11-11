@@ -1,0 +1,9 @@
+*
+!requirements.txt
+!studio/
+!studio/**
+**/__pycache__/
+**/*.pyc
+
+!third_party/
+!third_party/**

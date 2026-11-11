@@ -1,0 +1,42 @@
+{
+  "repository": "https://github.com/ur-grue/autopunk-media-skills",
+  "reviewed_on": "2026-11-11",
+  "integration": "Adapted methods only; examples and executable code are not loaded.",
+  "files": [
+    {
+      "id": "character-profile-writer",
+      "path": "skills/screenwriting/development/character-profile-writer/SKILL.md",
+      "git_blob_sha": "9d350114eb6db45b9ffd3f6c964c7c03f9953a35",
+      "url": "https://github.com/ur-grue/autopunk-media-skills/blob/main/skills/screenwriting/development/character-profile-writer/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "id": "beat-sheet-builder",
+      "path": "skills/screenwriting/development/beat-sheet-builder/SKILL.md",
+      "git_blob_sha": "25aec4e55d5e75b4829f33fa58a9accf7e1e39a2",
+      "url": "https://github.com/ur-grue/autopunk-media-skills/blob/main/skills/screenwriting/development/beat-sheet-builder/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "id": "scene-writer",
+      "path": "skills/screenwriting/scripting/scene-writer/SKILL.md",
+      "git_blob_sha": "10758bc371d720cec3f5eec4bf0b911e1b6e8428",
+      "url": "https://github.com/ur-grue/autopunk-media-skills/blob/main/skills/screenwriting/scripting/scene-writer/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "id": "dialogue-polisher",
+      "path": "skills/screenwriting/scripting/dialogue-polisher/SKILL.md",
+      "git_blob_sha": "ef0738150f883fe72e65fe016e2991f3f99a5ffc",
+      "url": "https://github.com/ur-grue/autopunk-media-skills/blob/main/skills/screenwriting/scripting/dialogue-polisher/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "id": "script-notes-writer",
+      "path": "skills/screenwriting/revision/script-notes-writer/SKILL.md",
+      "git_blob_sha": "1526a81589139c8b80f7ae938552ca8041d8d0a7",
+      "url": "https://github.com/ur-grue/autopunk-media-skills/blob/main/skills/screenwriting/revision/script-notes-writer/SKILL.md",
+      "license": "MIT"
+    }
+  ]
+}
