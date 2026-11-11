@@ -19,13 +19,15 @@
 
 ### 1. 准备 Python 和项目文件
 
-安装 Python 3.12 或 3.13 的64位版本。本项目已在 Windows 的 Python 3.12.14 和 3.13.17 上验证；新安装可选择 Python 3.13。下载入口：[Python 官方 Windows 下载页](https://www.python.org/downloads/windows/)。安装时选择将 Python 加入 PATH。安装后完全关闭旧的 PowerShell、Windows Terminal 或 VS Code 终端，再重新打开检查：
+已有可用的 Python 3.12 或 3.13 时，直接检查版本并跳到下载项目文件，不必重复安装。下面两种方式任选一种；本项目已在 Windows 的 Python 3.12.14 和 3.13.17 上验证。
+
+**方式A：官网安装。** 从 [Python 官方 Windows 下载页](https://www.python.org/downloads/windows/) 下载适合电脑架构的安装包，新安装可选择 Python 3.13。安装时选择将 Python 加入 PATH。安装后完全关闭旧的 PowerShell、Windows Terminal 或 VS Code 终端，再重新打开检查：
 
 ```powershell
 python --version
 ```
 
-如果显示未找到命令或打开 Microsoft Store，先执行 `Get-Command python -All` 查看命令位置。指向 `Microsoft\\WindowsApps` 时可能只是商店占位入口，并不说明 Python 已安装。若 `py -3.13 --version` 可用，可在下面创建环境时改用 `py -3.13 -m venv .venv`；使用3.12的成员替换版本号即可。`py` 是可选启动器，没有它也可以用 `python` 完成全部步骤。
+如果显示未找到命令或打开 Microsoft Store，先执行 `Get-Command python -All` 查看命令位置。指向 `Microsoft\WindowsApps` 时可能只是商店占位入口，并不说明 Python 已安装。若 `py -3.13 --version` 可用，可在下面创建环境时改用 `py -3.13 -m venv .venv`；使用3.12的成员替换版本号即可。`py` 是可选启动器，没有它也可以用 `python` 完成全部步骤。
 
 如果 Python 已安装但旧终端尚未刷新 PATH，也可以直接调用已确认存在的解释器，例如默认用户目录的3.13：
 
@@ -34,6 +36,45 @@ python --version
 ```
 
 该路径只适用于安装在此目录的电脑，不要把它当成所有安装方式的固定路径。
+
+**方式B：国内镜像完整运行时（可选）。** 官网下载慢，或EXE安装器受本机MSI问题阻碍时，可以使用下面的解压配置方式。本例固定为 **Windows x64 的 Python 3.13.17**，已在本项目验证；ARM电脑请使用方式A选择对应版本。
+
+下载来源是 [华为云Python镜像](https://repo.huaweicloud.com/python/3.13.17/python-3.13.17-amd64.zip)，校验值来自 [Python官网发布清单](https://www.python.org/ftp/python/3.13.17/windows-3.13.17.json)。这是包含标准库、venv和pip的完整运行时，不是名称中带 `embeddable` 的精简包。
+
+先在PowerShell下载并校验；出现报错就停止，完成后应显示“校验通过”：
+
+```powershell
+$pythonZip = Join-Path $env:TEMP 'story-branch-python-3.13.17-amd64.zip'
+curl.exe --fail --location --retry 2 --output "$pythonZip" "https://repo.huaweicloud.com/python/3.13.17/python-3.13.17-amd64.zip"
+if ($LASTEXITCODE -ne 0) { throw '下载未完成，请检查网络后重试' }
+$expectedHash = 'b26ca4b4ee51e157836049934d2b8eabd55939be296f3130254251b6df96ec2f'
+if ((Get-FileHash -LiteralPath $pythonZip -Algorithm SHA256).Hash -ne $expectedHash) { throw '校验失败，请勿使用此文件' }
+Write-Output '校验通过'
+```
+
+在同一个PowerShell窗口中，解压到新的用户目录并检查签名和版本：
+
+```powershell
+$pythonDir = Join-Path $env:LOCALAPPDATA 'Programs\Python\StoryBranch313'
+if (Test-Path -LiteralPath $pythonDir) { throw '目标目录已存在，请先确认是否已有可用Python，不要覆盖' }
+Expand-Archive -LiteralPath $pythonZip -DestinationPath $pythonDir
+$pythonExe = Join-Path $pythonDir 'python.exe'
+$signature = Get-AuthenticodeSignature -LiteralPath $pythonExe
+if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Python Software Foundation') { throw '签名检查未通过，请停止并联系技术同学' }
+& $pythonExe --version
+$env:Path = "$pythonDir;$env:Path"
+python --version
+```
+
+应显示 `Python 3.13.17`。这只设置当前终端的PATH；继续在同一个窗口完成第2、3步即可。若中途关闭窗口，在项目根目录用下面命令创建环境，再接第3步的依赖安装：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Python\StoryBranch313\python.exe" -m venv .venv
+```
+
+这种方式不注册MSI卸载项，也不修改系统PATH或修复Windows安装器。后续启动使用项目 `.venv`；不要移动或删除它依赖的上述Python目录。镜像示例固定了版本和哈希，更换版本时要同时核对对应官网清单。
+
+**下载项目文件（两种方式相同）：**
 
 打开本仓库 https://github.com/PPPAAA913/story-branch ，点击绿色 **Code → Download ZIP**，下载后解压。进入解压后的项目目录，必须能看到 `README.md`、`requirements.txt` 和 `studio` 文件夹。不要直接在压缩包内运行。
 
@@ -66,7 +107,7 @@ python -m venv .venv
 
 这里始终直接调用虚拟环境的 Python，不需要执行激活脚本，也不需要修改 PowerShell 执行策略。安装依赖需要联网。出现红色报错时先保留完整错误信息，不要继续后续步骤。
 
-如果默认下载源速度慢或超时，可以仅对这一次安装使用清华镜像，不修改电脑的全局pip配置：
+**依赖安装的可选方式：清华镜像。** 完成环境创建后，如果默认下载源速度慢或超时，可用下面命令替代上面的 `pip install` 命令。两种来源任选一种即可，不需要都安装一次；这仅对当前命令生效，不修改电脑的全局pip配置：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt --index-url https://pypi.tuna.tsinghua.edu.cn/simple --timeout 30 --retries 2
@@ -86,6 +127,29 @@ python -m venv .venv
 账号为 `peng_ao`（管理员）、`lyu_xingzhi`、`xu_xiaodong`、`wang_sikai`、`zhao_zhe`。在独立本机安装中，需要使用本机生成的密码；另一台电脑生成的密码不一定相同。需要配置模型时，由本机安装负责人使用初始化的管理员账号。
 
 凭据文件不要提交 GitHub、发群或作为截图公开。统一服务器部署时，由管理员分别分发每人的账号密码。重复初始化不会重置已有密码；看到“accounts already exist”时，应找原先生成的凭据文件。
+
+**忘记文件在哪：** 默认在项目根目录的 `data` 文件夹，文件名为 `initial-credentials-随机字符.txt`，每台电脑的后缀可能不同。先进入第2步的项目根目录，再运行以下命令，只列文件路径，不输出密码：
+
+```powershell
+Get-ChildItem -LiteralPath .\data -Filter 'initial-credentials-*.txt' | Select-Object -ExpandProperty FullName
+```
+
+也可以在资源管理器打开项目的 `data` 文件夹查找。如果只找到一个文件，可以这样用记事本打开：
+
+```powershell
+$credentialFiles = @(Get-ChildItem -LiteralPath .\data -Filter 'initial-credentials-*.txt')
+if ($credentialFiles.Count -eq 1) {
+    notepad.exe $credentialFiles[0].FullName
+} else {
+    Write-Output '未找到唯一文件，请根据上面的路径列表检查；不要删除数据库重新初始化。'
+}
+```
+
+文件第一行是说明；之后每行依次为 **姓名、账号、密码**，用制表符隔开。管理员找 `PENG Ao / peng_ao` 那一行，最后一列就是登录密码；其他成员按自己的姓名查找。密码不是GitHub密码，也不是DeepSeek API Key。
+
+如果设置了 `STUDIO_DB_PATH`，凭据文件保存在该数据库所在目录，需去那个目录查找；Docker方案则在容器的 `/app/data` 持久卷中，不是宿主机项目的 `data`。若有多个凭据文件，检查其中对应账号的行，不能仅凭文件日期判断；初始化只为当时缺少的账号生成新文件。若数据库里已有账号但凭据文件丢失，重复初始化不会找回或重置密码，请联系技术负责人处理。目前尚无网页改密/找回功能。
+
+数据库只保存加盐的scrypt密码哈希，不能从中读出原密码；初始化文件则含明文初始密码，应由管理员私下保管并分别分发。各人独立本机安装与未来统一线上服务使用各自的数据库和密码，不能混用。
 
 ### 5. 启动服务并登录
 
