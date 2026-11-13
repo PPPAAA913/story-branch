@@ -1,23 +1,47 @@
 """Immutable story-route snapshots and explicit upstream review dependencies."""
 from copy import deepcopy
 from fastapi import HTTPException
+from .contracts import STAGES, LABELS, CONTRACTS, issues
 
-STAGES = ["brief", "concept", "character", "outline", "script", "review"]
-LABELS = dict(zip(STAGES, ["创作简报", "故事方向", "人物设定", "前三集大纲", "首集剧本", "修改与对比"]))
-GUIDES = {
-    "brief": "整理中文创作简报，明确具体英语目标地区、题材、受众、时长、角色和场景限制。未知信息标记待确认。",
-    "concept": "用中文提出故事方向。供人选择；只有用户选定并确认后才用于人物开发。",
-    "character": "根据已确认方向，用中文建立人物动机、关系、秘密与成长变化。",
-    "outline": "用中文编写前三集大纲，每集包含行动、冲突升级与结尾悬念。",
-    "script": "输出第一集完整英文剧本，包含场景、动作和英文对白；文末另附中文梗概。",
-    "review": "用中文审阅本路线的剧本并提出具体修改建议。只更新审阅记录，不改写其他阶段。用户需回到相应阶段修改。",
-}
+GUIDES = {s: c["role"] for s, c in CONTRACTS.items()}
+
+
+def blank_document():
+    return {"text": "", "revision": None, "confirmed": False, "dependencies": {}}
+
+
+def normalize(route):
+    """Read projection only: never rewrite immutable historical database rows."""
+    result = deepcopy(route)
+    docs = result.setdefault("documents", {})
+    old = result.get("schema_version") != 2
+    if "review" in docs:
+        result["archived_review"] = docs.pop("review")
+    for s in STAGES:
+        docs.setdefault(s, blank_document())
+        if old:
+            docs[s]["confirmed"] = False
+    result.setdefault("legacy", "")
+    result.setdefault("selected_concept", "")
+    if old:
+        result["migration_notice"] = "旧路线内容已保留；请按新阶段要求整理并重新确认。旧审阅报告在历史审阅中，首集分场需补充。"
+    result["schema_version"] = 2
+    return result
+
+
+def stage_issues(route, stage):
+    return issues(stage, route["documents"][stage]["text"], route.get("selected_concept", ""))
+
+
+def upstream_text(route, stage):
+    # Candidate directions never become downstream facts.
+    return route.get("selected_concept", "") if stage == "concept" else route["documents"][stage]["text"]
 
 
 def empty_route(brief, revision):
-    docs = {s: {"text": "", "revision": None, "confirmed": False, "dependencies": {}} for s in STAGES}
+    docs = {s: blank_document() for s in STAGES}
     docs["brief"].update(text=brief, revision=revision)
-    return {"documents": docs, "legacy": ""}
+    return {"schema_version": 2, "documents": docs, "legacy": "", "selected_concept": ""}
 
 
 def dependencies(route, stage):
@@ -42,6 +66,7 @@ def require_upstream(route, stage):
 
 
 def revise(route, stage, text, revision, action):
+    route = normalize(route)
     result = deepcopy(route)
     if stage == "legacy":
         result["legacy"] = text
@@ -53,12 +78,25 @@ def revise(route, stage, text, revision, action):
         if not doc["text"].strip():
             raise HTTPException(400, "请先填写本阶段成果。")
         require_upstream(route, stage)
+        errors = stage_issues(result, stage)
+        if errors:
+            raise HTTPException(400, "本阶段尚不能确认：" + "；".join(errors))
         doc["dependencies"] = dependencies(route, stage)
         doc["confirmed"] = True
+        if all(d["confirmed"] for d in result["documents"].values()):
+            result.pop("migration_notice", None)
         # Confirmation doesn't change the content revision or invalidate descendants.
+    elif action == "select_concept":
+        if stage != "concept":
+            raise HTTPException(400, "只能在故事立意阶段选定方向。")
+        if text != result.get("selected_concept", ""):
+            result["selected_concept"] = text
+            doc.update(revision=revision, confirmed=False)
     elif text != doc["text"]:
         first = not doc["text"]
         doc.update(text=text, revision=revision, confirmed=False)
+        if stage == "concept":
+            result["selected_concept"] = ""
         # Manual edits to an existing stale draft require explicit review confirmation.
         if first or action == "chat":
             doc["dependencies"] = dependencies(route, stage)

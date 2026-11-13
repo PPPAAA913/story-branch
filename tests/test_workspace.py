@@ -56,12 +56,12 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_prompt_library_and_snapshots_are_independent(self):
         prompts = self.store.prompts()
-        self.assertEqual(6, len(prompts))
+        self.assertEqual(8, len(prompts))
         custom = self.store.save_prompt({"title": "Custom", "category": "test", "body": "My original guide"})
         self.append(self.bid, self.root, "Document")
         self.store.save_prompt({"title": "Custom v2", "category": "test", "body": "Changed guide"})
         later = WorkspaceStore(self.store.path)
-        self.assertEqual(8, len(later.prompts()))
+        self.assertEqual(10, len(later.prompts()))
         self.assertEqual("My original guide", next(p["body"] for p in later.prompts() if p["id"] == custom["id"]))
         self.assertEqual("guide v1", json.loads(later.project(self.p["id"])["versions"][-1]["prompt_json"])["body"])
 

@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/0xsline/short-drama",
+  "license": "MIT",
+  "reviewed_on": "2026-11-13",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "git_blob_sha": "485e41c700ee342f20a116d002762b45fcc11191"
+    },
+    {
+      "path": "references/hook-design.md",
+      "git_blob_sha": "5871eec71fa1f07f0856024a3207f73ec900eeee"
+    },
+    {
+      "path": "references/rhythm-curve.md",
+      "git_blob_sha": "f42e09cdb05ba67115e3fe5ddec6b8ec28d91b1e"
+    }
+  ],
+  "adaptation": "Only selected cultural adaptation, causal hooks and short-episode rhythm principles are rewritten into stage-specific rules. No scripts, original examples, market-success claims, fixed timings, paywall conversion promises or 50–100 episode scope are imported. Project contracts override source workflow."
+}

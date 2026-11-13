@@ -15,3 +15,6 @@ body{background:var(--bg);color:var(--text)}button,input,textarea,select,dialog{
 @media(min-width:1101px){.sidebar{position:sticky;top:0;align-self:start;max-height:100dvh;overflow-y:auto}.header-actions{gap:8px}.layout{grid-template-columns:250px minmax(340px,1fr) minmax(350px,.95fr)}}
 @media(max-width:650px){.version-list{display:grid;max-height:180px}.item-list{max-height:160px}.branch-row{min-width:220px;max-width:280px}.header-actions{gap:7px}.conversation,.document-panel{padding:16px}.brand small{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Keep project controls reachable when the sticky sidebar is taller than a screen. */
+.sidebar>*{flex-shrink:0}.stage-contract,.review-log{border-top:1px solid var(--line);margin-top:16px;padding:14px 0}.stage-contract li{margin:7px 0;line-height:1.65}.stage-contract ul{padding-left:20px}#concept-choice{padding:14px;background:var(--surface);border-radius:10px;margin-top:12px}#selected-concept{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px;line-height:1.8}.review-log>div{max-height:260px;overflow:auto}.review-log details{padding:10px 0;border-bottom:1px solid var(--line)}

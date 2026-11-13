@@ -16,8 +16,8 @@
     <div id="welcome"><div class="eyebrow">A STORY CAN TAKE MANY PATHS</div><h1>让故事，<br>拥有更多可能。</h1><p>从一个想法开始，和 AI 一起推敲人物、冲突与对白。<br>保存每一次选择，也保留那些值得探索的岔路。</p><button id="welcome-new" class="primary large">开始一个故事 →</button><div class="intro-cards"><article><b>01 · 提示词库</b><p>从创意、人物到剧本诊断，使用并积累自己的创作方法。</p></article><article><b>02 · 对话演化</b><p>用自然语言提出修改，将每一轮结果沉淀为可编辑稿件。</p></article><article><b>03 · 分支与版本</b><p>从任意版本探索新方向，随时回看、对比和导出。</p></article></div></div>
     <div id="session" hidden>
       <div class="session-head"><div><div class="eyebrow" id="branch-label"></div><h1 id="project-title"></h1></div><button id="refresh-button">刷新</button></div>
-      <details class="brief"><summary>创作简报</summary><p id="brief-text"></p></details>
-      <div id="historical" class="history-banner" hidden>正在查看历史版本。创建分支后可从这里继续创作。</div>
+      <details class="brief"><summary>创作定位</summary><p id="brief-text"></p></details>
+      <p id="migration-notice" class="history-banner" hidden></p><div id="historical" class="history-banner" hidden>正在查看历史版本。创建分支后可从这里继续创作。</div>
       <details id="failed-response" hidden><summary>上次未保存的模型返回</summary><p class="muted small">这段内容未通过校验，不会自动覆盖稿件。请下载保留，再核对整理。</p><button id="download-failed" type="button">下载未保存内容</button><pre id="failed-text"></pre></details><div id="chat" class="chat" aria-live="polite"></div>
       <form id="chat-form" class="composer">
         <div class="label-row"><label for="writing-mode">本轮任务</label><select id="writing-mode"><option value="write">创作 / 修改稿件</option><option value="discuss">只讨论，不改稿</option><option value="critique">只审阅，不改稿</option><option value="polish">英文对白润色</option></select></div>
@@ -31,22 +31,26 @@
   </section>
   <aside id="document-panel" class="document-panel" hidden>
     <div class="label-row"><div><div class="eyebrow">WORKING DOCUMENT</div><h2 id="stage-title">创作稿件</h2></div><button id="export-button">导出整条路线</button></div>
-    <div class="stage-summary"><span id="stage-status" class="badge"></span><p id="stage-guidance" class="muted small"></p><button id="confirm-stage" class="primary">检查完成 · 确认本阶段</button></div><div id="version-meta" class="muted small"></div>
+    <div class="stage-summary"><span id="stage-status" class="badge"></span><p id="stage-guidance" class="muted small"></p><button id="confirm-stage" class="primary">检查完成 · 确认本阶段</button></div><details class="stage-contract" open><summary>本阶段交付要求</summary><p id="contract-role" class="muted small"></p><p id="contract-boundary" class="small"></p><ul id="stage-checks" class="small"></ul><button id="insert-template" type="button">补入缺失的段落标题</button><p class="muted small">结构检查不代表写作质量合格；逻辑与表达请使用审阅并人工判断。</p></details>
+    <section id="concept-choice" hidden><b>人工选定立意</b><p id="selected-concept" class="small"></p><button id="choose-concept" type="button">选定 / 修改故事立意</button></section>
+    <div id="version-meta" class="muted small"></div>
     <label for="document" class="sr-only">当前版本稿件</label><textarea id="document" spellcheck="false" placeholder="生成后的稿件会出现在这里。你也可以直接写作，保存为人工编辑版本。"></textarea>
     <div class="label-row"><span id="dirty-status" class="muted small">已保存</span><button id="save-document">保存为新版本</button></div>
-    <button id="recover-draft" hidden>将冲突草稿另存为分支</button><details class="compare"><summary>版本对照 / 生成记录</summary><label for="compare-select">与另一版本对照</label><select id="compare-select"></select><pre id="compare-content"></pre><details><summary>本版本提示词与来源</summary><pre id="provenance"></pre></details></details>
+    <details class="review-log"><summary>本路线各阶段审阅记录</summary><div id="review-log"></div></details><button id="recover-draft" hidden>将冲突草稿另存为分支</button><details class="compare"><summary>版本对照 / 生成记录</summary><label for="compare-select">与另一版本对照</label><select id="compare-select"></select><pre id="compare-content"></pre><details><summary>本版本提示词与来源</summary><pre id="provenance"></pre></details></details>
   </aside>
 </main>
-<dialog id="new-dialog"><form id="new-form"><div class="label-row"><h2>开始新项目</h2><button type="button" data-close="new-dialog">关闭</button></div><label>项目名称<input name="title" maxlength="100" required placeholder="例如：第二次开场"></label><label>创作简报<textarea name="brief" rows="8" maxlength="8000" required>目标市场：美国英语市场（创作假设）
-输出语言：英语；讨论语言：中文
-题材：都市情感
-受众：成年短剧观众
-故事种子：年轻制片人发现，竞争对手曾匿名帮助过自己。
-制作限制：4 位主要演员，2 个主要场景；每集约 90 秒。
-阶段目标：三个故事方向、三集大纲、第一集剧本。</textarea></label><button class="primary" type="submit">创建项目</button></form></dialog>
+<dialog id="new-dialog"><form id="new-form"><div class="label-row"><h2>开始新项目</h2><button type="button" data-close="new-dialog">关闭</button></div><label>项目名称<input name="title" maxlength="100" required placeholder="例如：第二次开场"></label><label>创作定位<textarea name="brief" rows="8" maxlength="8000" required>## 目标地区与语言
+美国当代城市背景；正文为美国英语，讨论与规划为中文。
+## 受众与题材
+受众假设：喜欢创作自主与信任冲突的成年短剧观众。都市情感，克制而紧张。
+## 时长与制作约束
+每集约90秒；最多4名演员、2个场地；道具为手机与文件。本次交付前三集大纲与首集剧本。
+## 内容边界与待确认事项
+原创故事，不使用现成IP；不以暴力作为解决冲突的主要手段。受众偏好尚未验证。</textarea></label><button class="primary" type="submit">创建项目</button></form></dialog>
 <dialog id="settings-dialog"><form id="settings-form" autocomplete="off"><div class="label-row"><h2>模型连接</h2><button type="button" data-close="settings-dialog">关闭</button></div><p class="muted">样例模式验证流程；DeepSeek 模式生成真实内容。</p><label>模式<select id="provider"><option value="demo">样例模式 · 无 API 调用</option><option value="deepseek">DeepSeek</option></select></label><label>模型名称<input id="model-name" value="deepseek-flash" required maxlength="100"></label><label>单次输出上限（token）<input id="max-tokens" type="number" min="1024" max="393216" step="1" value="81920" required></label><p class="muted small">默认81920，是原上限的10倍；这是最大允许长度，不是最低生成长度。长输出可能更慢、费用更高，实际还受模型限制。</p><label>DeepSeek API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="填写密钥；留空则保留当前配置"></label><p id="key-status" class="muted small"></p><p class="muted small">密钥保存在服务端；界面配置仅在当前进程有效，重启后恢复服务器环境配置。保存设置不发起模型调用；发送创作需求时会调用并按账户计费。</p><div class="label-row"><button id="clear-key" type="button">清除密钥并使用样例</button><button class="primary" type="submit">保存配置</button></div></form></dialog>
-<dialog id="library-dialog" class="wide"><div class="label-row"><div><div class="eyebrow">PROMPT LIBRARY</div><h2>创作方法，也可以积累。</h2></div><button data-close="library-dialog">关闭</button></div><p class="muted">内置模板是初始样例，可由小组根据创作任务调整。每次生成都会保存当时的提示词快照。</p><div id="library" class="library-grid"></div></dialog>
-<dialog id="template-dialog"><form id="template-form"><div class="label-row"><h2>另存为小组模板</h2><button type="button" data-close="template-dialog">关闭</button></div><label>模板名称<input id="template-title" maxlength="80" required></label><label>分类<input id="template-category" maxlength="30" value="自定义" required></label><label>提示词<textarea id="template-body" rows="9" maxlength="6000" required></textarea></label><button class="primary" type="submit">保存模板</button></form></dialog>
+<dialog id="library-dialog" class="wide"><div class="label-row"><div><div class="eyebrow">PROMPT LIBRARY</div><h2>创作方法，也可以积累。</h2></div><button data-close="library-dialog">关闭</button></div><p class="muted">内置模板是初始样例，可由小组根据创作任务调整。每次生成都会保存当时的提示词快照。</p><p class="muted small">仅展示当前阶段适用的模板；另存时可指定适用阶段。</p><div id="library" class="library-grid"></div></dialog>
+<dialog id="template-dialog"><form id="template-form"><div class="label-row"><h2>另存为小组模板</h2><button type="button" data-close="template-dialog">关闭</button></div><label>模板名称<input id="template-title" maxlength="80" required></label><label>适用阶段<select id="template-stage"><option value="">所有阶段（受各阶段边界约束）</option></select></label><label>分类<input id="template-category" maxlength="30" value="自定义" required></label><label>提示词<textarea id="template-body" rows="9" maxlength="6000" required></textarea></label><button class="primary" type="submit">保存模板</button></form></dialog>
 <dialog id="fork-dialog"><form id="fork-form"><div class="label-row"><h2>探索一个新分支</h2><button type="button" data-close="fork-dialog">关闭</button></div><p id="fork-source" class="muted"></p><label>分支名称<input id="fork-name" maxlength="80" placeholder="例如：女主主动揭露真相" required></label><button class="primary" type="submit">创建并切换</button></form></dialog>
+<dialog id="selection-dialog"><form id="selection-form"><div class="label-row"><h2>选定故事立意</h2><button type="button" data-close="selection-dialog">关闭</button></div><p class="muted">复制一个候选方向并按需调整，写清主角身份、目标、冲突与代价。后续只使用这里保存的方向，候选原稿仍保留。</p><label>选定立意<textarea id="selection-text" required minlength="20" maxlength="8000" rows="9"></textarea></label><button class="primary" type="submit">保存选定立意</button></form></dialog>
 <script src="/static/workspace.js"></script>
 </body></html>

@@ -11,8 +11,9 @@ from uuid import uuid4
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .route import STAGES, LABELS, GUIDES, empty_route, statuses, revise, require_upstream
+from .route import STAGES, LABELS, GUIDES, empty_route, statuses, revise, require_upstream, normalize, stage_issues, upstream_text
 from .writing import SEEDS, build_pack, catalog
+from .samples import SAMPLES
 
 from fastapi import APIRouter, HTTPException, Request as WebRequest
 
@@ -54,7 +55,10 @@ class WorkspaceStore:
                 CREATE INDEX IF NOT EXISTS w_version_project ON w_versions(project_id);
                 CREATE INDEX IF NOT EXISTS w_branch_project ON w_branches(project_id);
             """)
-            c.executemany("""INSERT INTO w_prompts VALUES (?,?,?,?,1,?)
+            prompt_columns = {row[1] for row in c.execute("PRAGMA table_info(w_prompts)")}
+            if "stage" not in prompt_columns:
+                c.execute("ALTER TABLE w_prompts ADD COLUMN stage TEXT NOT NULL DEFAULT ''")
+            c.executemany("""INSERT INTO w_prompts(id,title,category,body,builtin,created_at) VALUES (?,?,?,?,1,?)
                 ON CONFLICT(id) DO UPDATE SET title=excluded.title,category=excluded.category,body=excluded.body
                 WHERE w_prompts.builtin=1""", [(*p, now()) for p in SEEDS])
             columns = {row[1] for row in c.execute("PRAGMA table_info(w_versions)")}
@@ -81,12 +85,21 @@ class WorkspaceStore:
 
     def prompts(self):
         with self.connect() as c:
-            return [dict(r) for r in c.execute("SELECT * FROM w_prompts ORDER BY builtin DESC, created_at, id")]
+            rows = [dict(r) for r in c.execute("SELECT * FROM w_prompts ORDER BY builtin DESC, created_at, id")]
+        for row in rows:
+            if row["builtin"]:
+                row["stages"] = ["script"] if row["id"] == "seed-localize" else STAGES if row["id"] == "seed-doctor" else [row["id"].removeprefix("seed-")]
+            else:
+                row["stages"] = [row["stage"]] if row["stage"] else STAGES
+        return rows
 
     def save_prompt(self, data):
-        row = dict(id=uid(), title=text_field(data, "title", 80), category=text_field(data, "category", 30), body=text_field(data, "body", 6000), builtin=0, created_at=now())
+        stage = data.get("stage", "")
+        if stage not in STAGES + [""]:
+            raise HTTPException(400, "未知模板阶段。")
+        row = dict(id=uid(), title=text_field(data, "title", 80), category=text_field(data, "category", 30), body=text_field(data, "body", 6000), builtin=0, created_at=now(), stage=stage)
         with self.connect() as c:
-            c.execute("INSERT INTO w_prompts VALUES (:id,:title,:category,:body,:builtin,:created_at)", row)
+            c.execute("INSERT INTO w_prompts VALUES (:id,:title,:category,:body,:builtin,:created_at,:stage)", row)
         return row
 
     def projects(self, user_id=None):
@@ -101,7 +114,7 @@ class WorkspaceStore:
         with self.connect() as c:
             c.execute("INSERT INTO w_projects VALUES (?,?,?,?)", (pid, title, brief, date))
             c.execute("INSERT INTO w_branches VALUES (?,?,?,?,?,?)", (bid, pid, "主线", vid, None, date))
-            c.execute("INSERT INTO w_versions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (vid, pid, bid, None, "创建项目", "创作简报已保存。选择提示词或输入需求，开始创作。", "", "manual", "", "{}", date, (actor or {}).get("id", ""), (actor or {}).get("name", "本地创作者"), json.dumps(empty_route(brief, vid), ensure_ascii=False), "brief"))
+            c.execute("INSERT INTO w_versions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (vid, pid, bid, None, "创建项目", "创作定位已保存。请检查阶段要求后继续。", "", "manual", "", "{}", date, (actor or {}).get("id", ""), (actor or {}).get("name", "本地创作者"), json.dumps(empty_route(brief, vid), ensure_ascii=False), "brief"))
             if actor:
                 c.execute("INSERT INTO project_members SELECT ?,id FROM users", (pid,))
         return self.project(pid)
@@ -119,7 +132,9 @@ class WorkspaceStore:
             if not version["route"]:
                 version["route"] = empty_route(result["brief"], "legacy-brief")
                 version["route"]["legacy"] = version["document"]
+            version["route"] = normalize(version["route"])
             version["stage_status"] = statuses(version["route"])
+            version["stage_checks"] = {s: stage_issues(version["route"], s) for s in STAGES}
         return result
 
     def fork(self, pid, data):
@@ -225,14 +240,7 @@ class ModelGateway:
         if mode == "demo":
             if task_mode in {"discuss", "critique", "polish"}:
                 return "固定样例模式：已接入写作方法与任务模式；未执行真实讨论、审阅或润色。当前稿件保持原样，请配置模型后验证效果。", previous, "demo", "fixed-sample"
-            samples = {
-                "brief": "目标地区：美国英语市场（创作假设）\n题材：都市情感\n讨论语言：中文\n剧本语言：英文，附中文梗概\n制作约束：四名演员、两个场地、首集约90秒。",
-                "concept": "方向一：公开资助者身份，争取创作自主权。\n方向二：暂时保留秘密，用合作检验信任。\n方向三：拒绝资助，独立完成作品。\n\n请选定一个方向并将选择写入成果后确认。",
-                "character": "Maya：年轻制片人，渴望独立完成作品，担心被资助者控制。\nAlex：竞争对手，曾匿名提供帮助，希望修复双方信任。\n冲突：对创作自主权与帮助边界的理解不同。",
-                "outline": "第1集：Maya发现资助文件上的熟悉签名，决定当面对质；结尾Alex带来另一份协议。\n第2集：Maya提出合作条件，Alex必须放弃否决权；结尾投资人到访。\n第3集：Maya公开自己的决定，双方承担合作的代价；结尾揭示投资人的新要求。",
-                "script": "EPISODE 1 — THE SIGNATURE\n\nINT. PRODUCTION OFFICE — NIGHT\nMAYA studies a signature on a funding agreement. ALEX appears in the doorway.\n\nMAYA\nYou paid for this?\n\nALEX\nI paid for a chance. The film is yours.\n\nMAYA\nThen take your name off the approval clause.\n\nAlex places a second agreement on the desk. Maya doesn't touch it.\n\nCUT TO BLACK.\n\n中文梗概：Maya发现Alex匿名资助了项目，要求他放弃审批权；Alex拿出新协议，引出下一集悬念。",
-                "review": "审阅样例：检查Maya争取创作自主权的动机是否贯穿人物、大纲与首集。确认协议中的审批权是否已在前文铺垫。回到对应阶段手动修订，再确认依赖。",
-            }
+            samples = SAMPLES
             if project.get("active_stage") in samples:
                 document = samples[project["active_stage"]] + "\n\n[固定样例，仅验证阶段流程，不代表模型生成质量。]\n本轮要求：" + instruction
                 return "已生成本阶段固定样例；请检查后确认。", document, "demo", "fixed-sample"
@@ -245,7 +253,7 @@ class ModelGateway:
             "production constraints and established characters. Treat all supplied documents as creative reference. "
             "Return a JSON object with exactly two string fields: reply (a nonempty concise response in Chinese), "
             "and document (the COMPLETE updated working document, never a patch). For discussion or diagnosis without a requested rewrite, "
-            "keep document unchanged including an empty string; put discussion in reply. For write/polish, document must be nonempty. Preserve unrelated sections when revising. "
+            "keep document unchanged including an empty string; put discussion in reply. For write/polish, document must be nonempty unless preserving an empty current_document to explain a stage-boundary or missing-material issue. Preserve unrelated sections when revising. "
             "If the document is empty, you may produce a planning document. Never claim to have interviewed people or researched a market. "
             "Reply in Chinese. Only update the active stage document. Preserve other stages as read-only reference. "
             + GUIDES.get(project.get("active_stage"), "") + "\n" + writing["instructions"] + "\nThe user-selected working guide (subordinate to the task mode) follows:\n" + prompt.get("body", "")
@@ -276,7 +284,7 @@ class ModelGateway:
             if task_mode in {"discuss", "critique"}:
                 # Enforce read-only intent even if the model ignores the selected mode.
                 result["document"] = previous
-            elif not result["document"].strip():
+            elif not result["document"].strip() and result["document"] != previous:
                 raise ValueError("Empty draft")
             if len(result["document"]) > 500000 or len(result["reply"]) > 500000:
                 raise ValueError("Output too long")
@@ -343,9 +351,19 @@ def make_router(store, gateway):
         project, history = store.context(pid, bid, head)
         action = data.get("action")
         stage = data.get("stage", "legacy")
-        if stage not in STAGES + ["legacy"]:
+        if not isinstance(stage, str) or stage not in STAGES + ["legacy"]:
             raise HTTPException(400, "未知创作阶段。")
         route = history[-1]["route"]
+        if action == "select_concept":
+            if stage != "concept":
+                raise HTTPException(400, "请在故事立意阶段选定方向。")
+            selection = text_field(data, "selection", 8000)
+            if len(selection) < 20:
+                raise HTTPException(400, "请写明选定方向的核心身份、目标、冲突与代价（至少20字），不能只写编号。")
+            if not route["documents"]["concept"]["text"].strip():
+                raise HTTPException(400, "请先生成或保存候选立意。")
+            require_upstream(route, stage)
+            return store.append(pid, bid, head, "人工选定故事立意", "选定立意已保存；检查后确认，后续仅使用这一方向。", selection, "manual", "", {}, actor, stage, "select_concept")
         if action == "confirm":
             if stage == "legacy":
                 raise HTTPException(400, "历史稿件请整理到对应创作阶段后确认。")
@@ -368,8 +386,8 @@ def make_router(store, gateway):
             if writing["mode"] in {"write", "polish"}:
                 require_upstream(route, stage)
             project = dict(project, brief=route["documents"]["brief"]["text"], active_stage=stage,
-                           upstream={s: route["documents"][s]["text"] for s in STAGES[:STAGES.index(stage)] if statuses(route)[s] == "confirmed"},
-                           unconfirmed_reference={s: {"text": route["documents"][s]["text"], "status": statuses(route)[s]} for s in STAGES[:STAGES.index(stage)] if statuses(route)[s] != "confirmed"})
+                           upstream={s: upstream_text(route, s) for s in STAGES[:STAGES.index(stage)] if statuses(route)[s] == "confirmed"},
+                           unconfirmed_reference={s: {"text": upstream_text(route, s), "status": statuses(route)[s]} for s in STAGES[:STAGES.index(stage)] if statuses(route)[s] != "confirmed"})
             history = [dict(v) for v in history if v["stage"] == stage] or [dict(history[-1])]
             history[-1] = dict(history[-1], document=route["documents"][stage]["text"])
         reply, document, provider, model = gateway.generate(project, history, instruction, prompt)

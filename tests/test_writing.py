@@ -65,7 +65,7 @@ class WritingTests(unittest.TestCase):
         payload=json.loads(call.call_args.args[0].data)
         self.assertIn(pack['instructions'],payload['messages'][0]['content'])
         self.assertEqual('polish',json.loads(payload['messages'][1]['content'])['task_mode'])
-        self.assertEqual(['scene','dialogue','character'],[s['id'] for s in pack['skills']])
+        self.assertEqual(['scene','dialogue','localize'],[s['id'] for s in pack['skills']])
 
     def test_gateway_readonly_accepts_empty_document_and_rejects_bad_structure(self):
         self.gateway.configure({'mode':'deepseek','api_key':'test-only','model':'test-model'})
@@ -88,7 +88,9 @@ class WritingTests(unittest.TestCase):
     def test_source_records_and_pack_fingerprint(self):
         sources=json.loads((Path(__file__).resolve().parents[1]/'third_party/autopunk-media-skills/sources.json').read_text())
         shas={s['git_blob_sha'] for s in sources['files']}
-        for stage in ['concept','character','outline','script','review']:
+        extra=json.loads((Path(__file__).resolve().parents[1]/'third_party/short-drama/sources.json').read_text(encoding='utf-8'))
+        shas.update(s['git_blob_sha'] for s in extra['files'])
+        for stage in ['brief','concept','character','outline','scenes','script']:
             pack=build_pack(stage)
             self.assertTrue(all(s['git_blob_sha'] in shas for s in pack['skills']))
         self.assertNotEqual(build_pack('script','write')['sha256'],build_pack('script','discuss')['sha256'])

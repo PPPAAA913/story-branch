@@ -15,7 +15,7 @@ from .route import STAGES
 ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = Path(os.getenv("STUDIO_DB_PATH", str(ROOT / "data" / "projects.db")))
 database = Database(DATA_PATH)
-app = FastAPI(title="Story Branch", version="0.6.0")
+app = FastAPI(title="Story Branch", version="0.7.0")
 allowed_hosts = [h.strip() for h in os.getenv("STUDIO_ALLOWED_HOSTS", "127.0.0.1,localhost,[::1],testserver").split(",") if h.strip()]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.mount("/static", StaticFiles(directory=ROOT / "studio" / "static"), name="static")
