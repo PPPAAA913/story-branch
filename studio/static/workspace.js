@@ -1,5 +1,9 @@
 const $ = id => document.getElementById(id);
 const S = {projects:[], prompts:[], project:null, branch:null, version:null, busy:false, settings:null, user:null, stage:"brief", writing:null};
+const themeMedia=window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){const choice=localStorage.getItem('storyTheme')||'system';$('theme-select').value=choice;document.documentElement.dataset.theme=choice==='system'?(themeMedia.matches?'dark':'light'):choice;}
+$('theme-select').onchange=()=>{localStorage.setItem('storyTheme',$('theme-select').value);applyTheme();};themeMedia.addEventListener('change',applyTheme);applyTheme();
+let failedResponse='';
 function node(tag, cls, text) { const e=document.createElement(tag); if(cls)e.className=cls; if(text!==undefined)e.textContent=text; return e; }
 function notify(text, error=false) {
   $('notice').textContent=text; $('notice').className=error?'error':'success';
@@ -8,7 +12,7 @@ function notify(text, error=false) {
 }
 async function api(path, body) {
   const r=await fetch('/api/workspace'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const data=await r.json(); if(r.status===401){location.assign('/login');throw new Error('登录已过期，请重新登录。');} if(!r.ok){const error=new Error(typeof data.detail==='string'?data.detail:'请求格式不正确。');error.status=r.status;throw error;} return data;
+  const data=await r.json(); if(r.status===401){location.assign('/login');throw new Error('登录已过期，请重新登录。');} if(!r.ok){const error=new Error(typeof data.detail==='string'?data.detail:data.detail?.message||'请求格式不正确。');error.status=r.status;error.responseText=data.detail?.response_text;throw error;} return data;
 }
 function current(){return S.project?.versions.find(v=>v.id===S.version);}
 function branch(){return S.project?.branches.find(b=>b.id===S.branch);}
@@ -42,8 +46,8 @@ function headState(){
 async function run(work){
   if(S.busy)return;
   S.busy=true; const buttons=[...document.querySelectorAll('button')]; buttons.forEach(b=>b.disabled=true); headState();
-  notify('处理中，请稍候。真实模型生成可能需要一至两分钟。');
-  try{await work();}catch(e){if(e.status===409&&dirty())$('recover-draft').hidden=false;notify(e.message,true);}finally{S.busy=false;buttons.forEach(b=>b.disabled=false);headState();}
+  notify('处理中，请稍候。长篇生成可能需要数分钟，请保持页面打开。');
+  try{await work();}catch(e){if(e.responseText){failedResponse=e.responseText;$('failed-text').textContent=failedResponse;$('failed-response').hidden=false;$('failed-response').open=true;}if(e.status===409&&dirty())$('recover-draft').hidden=false;notify(e.message,true);}finally{S.busy=false;buttons.forEach(b=>b.disabled=false);headState();}
 }
 function pathTo(id){const map=new Map(S.project.versions.map(v=>[v.id,v])), result=[];while(id){const v=map.get(id);result.push(v);id=v.parent_id;}return result.reverse();}
 function renderProjects(){
@@ -54,7 +58,7 @@ function renderProjects(){
   if(!S.projects.length)$('projects').append(node('p','muted small','还没有项目，先写下一个想法。'));
 }
 function load(project,bid,vid){
-  S.project=project; S.branch=bid||project.branches[0].id; S.version=vid||branch().head;
+  const changed=S.project?.id!==project.id;S.project=project; S.branch=project.branches.some(b=>b.id===bid)?bid:project.branches[0].id; S.version=vid&&project.versions.some(v=>v.id===vid)?vid:branch().head;if(changed){failedResponse='';$('failed-response').hidden=true;}
   remember();render();
 }
 function render(){
@@ -62,13 +66,22 @@ function render(){
   $('project-title').textContent=S.project.title;$('branch-label').textContent=branch().name+' / '+vlabel(S.version);$('brief-text').textContent=current().route.documents.brief.text;renderStages();renderWriting();
   $('branches').replaceChildren(...S.project.branches.map(b=>{
     const e=node('button','list-button'+(b.id===S.branch?' active':''));e.append(node('b','',b.name),node('small','muted',b.fork_version?'从 '+vlabel(b.fork_version)+' 分叉':'原始故事线'));
-    e.onclick=()=>{if(!S.busy&&canLeave())load(S.project,b.id);};return e;
+    e.onclick=()=>{if(!S.busy&&canLeave())load(S.project,b.id);};
+    const row=node('div','branch-row');row.append(e);
+    if(b.fork_version){const remove=node('button','delete-branch','删除');remove.setAttribute('aria-label','删除分支 '+b.name);remove.onclick=()=>{
+      if(S.busy)return;
+      if(b.id===S.branch&&dirty()){notify('当前分支有未保存修改，请先保存或另存分支。',true);return;}
+      if(!window.confirm('删除分支“'+b.name+'”？全组将无法继续在此分支编辑。其他分支不受影响，共享的历史版本仍会保留。'))return;
+      run(async()=>{const p=await api('/projects/'+S.project.id+'/branches/'+b.id+'/delete',{head:b.head});load(p,S.branch===b.id?undefined:S.branch,S.branch===b.id?undefined:S.version);notify('分支已删除，共享历史已保留。');});
+    };row.append(remove);}return row;
   }));
+  const versionScroll=$('versions').scrollTop;$('version-count').textContent=pathTo(branch().head).length+' 个版本';
   $('versions').replaceChildren(...pathTo(branch().head).slice().reverse().map(v=>{
     const b=node('button','version'+(v.id===S.version?' active':''));
     b.append(node('b','',vlabel(v.id)+' · '+(v.provider==='manual'?'人工记录':v.provider==='demo'?'样例生成':'DeepSeek')),node('span','',v.instruction.slice(0,60)));
     b.onclick=()=>{if(!S.busy&&canLeave())load(S.project,S.branch,v.id);};return b;
   }));
+  $('versions').scrollTop=versionScroll;
   const history=pathTo(S.version);$('chat').replaceChildren();
   history.filter(v=>v.stage===S.stage).forEach(v=>{
     const row=node('article','turn');row.append(node('div','turn-label',vlabel(v.id)+' · '+new Date(v.created_at).toLocaleString()));
@@ -81,7 +94,7 @@ function render(){
   const revision=current().route.documents[S.stage]?.revision;const source=S.project.versions.find(v=>v.id===revision)||current();
   $('version-meta').textContent='路线 '+vlabel(S.version)+' · '+(source.provider==='demo'?'固定样例':source.provider==='manual'?'人工保存':source.model)+' · '+(source.author_name||'历史记录');
   $('provenance').textContent=JSON.stringify({provider:source.provider,model:source.model,content_version:revision,route_version:S.version,prompt:JSON.parse(source.prompt_json),selected_event_prompt:JSON.parse(current().prompt_json),stage:S.stage,dependencies:current().route.documents[S.stage]?.dependencies},null,2);
-  const others=S.project.versions.filter(v=>v.id!==S.version);
+  const reachable=new Set(S.project.branches.flatMap(b=>pathTo(b.head).map(v=>v.id)));const others=S.project.versions.filter(v=>v.id!==S.version&&reachable.has(v.id));
   $('compare-select').replaceChildren(node('option','','请选择对照版本'),...others.map(v=>{const o=node('option','',vlabel(v.id)+' · '+v.instruction.slice(0,30));o.value=v.id;return o;}));
   $('compare-select').options[0].value='';$('compare-select').value=current().parent_id||'';compare();headState();
   $('chat').scrollTop=$('chat').scrollHeight;
@@ -113,7 +126,7 @@ function template(title,category,body){$('template-title').value=title;$('templa
 function renderSettings(){
   $('mode').textContent=S.settings.mode==='demo'?'样例模式 · 固定内容':'DeepSeek · 已配置';
   $('send-hint').textContent=S.settings.mode==='demo'?'固定样例，仅验证流程':'发送将调用 DeepSeek，并保存完整新版本';
-  $('provider').value=S.settings.mode;$('model-name').value=S.settings.model;
+  $('max-tokens').value=S.settings.max_tokens||81920;$('provider').value=S.settings.mode;$('model-name').value=S.settings.model;
   $('key-status').textContent=S.settings.configured?'已有密钥配置；实际连通性以生成请求为准。':'尚未配置密钥。';
 }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{if(!S.busy)$(b.dataset.close).close();});
@@ -123,7 +136,7 @@ $('settings-button').onclick=()=>{$('api-key').value='';renderSettings();$('sett
 $('settings-dialog').addEventListener('close',()=>{$('api-key').value='';});
 $('settings-form').onsubmit=e=>{e.preventDefault();run(async()=>{
   const key=$('api-key').value.trim();$('api-key').value='';
-  S.settings=await api('/settings',{mode:$('provider').value,model:$('model-name').value,api_key:key});renderSettings();$('settings-dialog').close();notify('配置已保存。可发送创作需求；本次未发起模型调用。');
+  S.settings=await api('/settings',{mode:$('provider').value,model:$('model-name').value,max_tokens:Number($('max-tokens').value),api_key:key});renderSettings();$('settings-dialog').close();notify('配置已保存。可发送创作需求；本次未发起模型调用。');
 });};
 $('clear-key').onclick=()=>run(async()=>{S.settings=await api('/settings',{mode:'demo',model:$('model-name').value,clear_key:true});$('api-key').value='';renderSettings();notify('密钥已从当前服务内存清除。');});
 $('new-form').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));run(async()=>{const p=await api('/projects',data);S.projects=await api('/projects');S.stage='brief';$('writing-mode').value='write';$('prompt-select').value='';$('prompt-body').value='';$('instruction').value='';load(p);$('new-dialog').close();notify('项目已创建，选择指南并开始对话。');});};
@@ -166,5 +179,6 @@ async function boot(){
   notify('工作台已就绪。');
 }
 $('confirm-stage').onclick=()=>run(async()=>{if(dirty())throw new Error('请先保存修改。');const p=await api('/projects/'+S.project.id+'/versions',{action:'confirm',stage:S.stage,branch_id:S.branch,parent_id:S.version});load(p,S.branch);notify('本阶段成果已确认，可以进入下一阶段。');});
+$('download-failed').onclick=()=>{const url=URL.createObjectURL(new Blob([failedResponse],{type:'text/plain;charset=utf-8'})),a=node('a');a.href=url;a.download='未保存的模型返回.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('logout-button').onclick=async()=>{if(!canLeave())return;const r=await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(r.ok||r.status===401){sessionStorage.clear();location.assign('/login');}else notify('退出失败，请重试。',true);};
 boot().catch(e=>notify('加载失败：'+e.message,true));

@@ -149,6 +149,21 @@ class WorkspaceStore:
         history.reverse()
         return project, history
 
+    def delete_branch(self, pid, bid, data):
+        head = text_field(data, "head", 64)
+        with self.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            row = c.execute("SELECT * FROM w_branches WHERE id=? AND project_id=?", (bid, pid)).fetchone()
+            if not row:
+                raise HTTPException(404, "分支已删除或不存在，请刷新。")
+            if row["fork_version"] is None:
+                raise HTTPException(400, "主线不可删除。")
+            if row["head"] != head:
+                raise HTTPException(409, "其他成员已更新此分支，请刷新并检查后再删除。")
+            # Keep immutable versions: other branches can depend on this ancestry.
+            c.execute("DELETE FROM w_branches WHERE id=? AND project_id=?", (bid, pid))
+        return self.project(pid)
+
     def append(self, pid, bid, head, instruction, reply, document, provider, model, prompt, actor=None, stage="legacy", action="edit"):
         vid = uid()
         with self.connect() as c:
@@ -172,10 +187,13 @@ class ModelGateway:
         self.key = os.getenv("DEEPSEEK_API_KEY", "")
         self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
         self.mode = "deepseek" if self.key else "demo"
+        self.max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", "81920"))
+        if not 1024 <= self.max_tokens <= 393216:
+            raise ValueError("DEEPSEEK_MAX_TOKENS must be between 1024 and 393216")
 
     def status(self):
         with self.lock:
-            return {"mode": self.mode, "model": self.model, "configured": bool(self.key), "key_storage": "server_memory", "verified": False}
+            return {"mode": self.mode, "model": self.model, "configured": bool(self.key), "key_storage": "server_memory", "verified": False, "max_tokens": self.max_tokens}
 
     def configure(self, data):
         mode = data.get("mode")
@@ -188,15 +206,19 @@ class ModelGateway:
         if not isinstance(key, str) or len(key) > 512 or any(ch.isspace() for ch in key):
             raise HTTPException(400, "密钥格式不正确。")
         with self.lock:
+            max_tokens = data.get("max_tokens", self.max_tokens)
+            if type(max_tokens) is not int or not 1024 <= max_tokens <= 393216:
+                raise HTTPException(400, "输出上限必须为1024至393216之间的整数，并符合所选模型限制。")
             new_key = "" if data.get("clear_key") is True else (key or self.key)
             if mode == "deepseek" and not new_key:
                 raise HTTPException(400, "请填写 DeepSeek API Key。")
             self.key, self.model, self.mode = new_key, model, mode
+            self.max_tokens = max_tokens
         return self.status()
 
     def generate(self, project, history, instruction, prompt):
         with self.lock:
-            mode, key, model = self.mode, self.key, self.model
+            mode, key, model, max_tokens = self.mode, self.key, self.model, self.max_tokens
         previous = history[-1]["document"]
         writing = prompt.get("writing") or build_pack(project.get("active_stage", "legacy"))
         task_mode = writing["mode"]
@@ -231,17 +253,24 @@ class ModelGateway:
         # Current document is authoritative. Only this version's ancestry is sent.
         recent = [{"request": v["instruction"], "reply": v["reply"]} for v in history[-8:]]
         context = json.dumps({"brief": project["brief"], "recent_conversation": recent, "current_document": previous, "request": instruction, "active_stage": project.get("active_stage"), "confirmed_upstream": project.get("upstream", {}), "unconfirmed_reference": project.get("unconfirmed_reference", {}), "task_mode": task_mode}, ensure_ascii=False)
-        if len(system) + len(context) > 65000:
+        if len(system) + len(context) > 650000:
             raise HTTPException(400, "当前上下文过长，请精简工作文档或输入后再生成。")
-        payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": context}], "max_tokens": 8192, "response_format": {"type": "json_object"}, "stream": False}
+        payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": context}], "max_tokens": max_tokens, "response_format": {"type": "json_object"}, "stream": False}
         req = Request(self.endpoint, data=json.dumps(payload).encode("utf-8"), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+        content = ""
+        reason = None
         try:
-            with urlopen(req, timeout=120) as response:
+            with urlopen(req, timeout=600) as response:
                 raw = json.load(response)
             choice = raw["choices"][0]
-            if choice.get("finish_reason") != "stop":
+            content = choice["message"].get("content") or ""
+            reason = choice.get("finish_reason")
+            if reason != "stop":
                 raise ValueError("Incomplete output")
-            result = json.loads(choice["message"]["content"])
+            cleaned = content.strip()
+            if cleaned.startswith("```") and cleaned.endswith("```"):
+                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)[:-3].strip()
+            result = json.loads(cleaned)
             if not isinstance(result, dict) or not isinstance(result.get("reply"), str) or not result["reply"].strip() or not isinstance(result.get("document"), str):
                 raise ValueError("Invalid structure")
             if task_mode in {"discuss", "critique"}:
@@ -249,16 +278,17 @@ class ModelGateway:
                 result["document"] = previous
             elif not result["document"].strip():
                 raise ValueError("Empty draft")
-            if len(result["document"]) > 50000 or len(result["reply"]) > 12000:
+            if len(result["document"]) > 500000 or len(result["reply"]) > 500000:
                 raise ValueError("Output too long")
             return result["reply"], result["document"], mode, model
         except HTTPError as exc:
-            descriptions = {401: "密钥无效", 402: "账户余额不足", 429: "请求过于频繁"}
+            descriptions = {400: "请检查模型名称、输出上限与所选模型支持的参数", 401: "密钥无效", 402: "账户余额不足", 429: "请求过于频繁"}
             raise HTTPException(502, f"DeepSeek 调用失败（{exc.code}）：{descriptions.get(exc.code, '请稍后重试')}。未保存新版本。") from None
         except (URLError, TimeoutError, OSError):
             raise HTTPException(502, "无法连接 DeepSeek 或请求超时。未保存新版本。") from None
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
-            raise HTTPException(502, "模型返回的文档格式不完整。未保存新版本，请重试或缩小任务。") from None
+            message = "模型输出达到上限而被截断；可在模型设置提高输出上限，或拆分任务。" if reason == "length" else "模型返回未通过完整性或格式检查。"
+            raise HTTPException(502, {"message": message + " 未保存新版本；已返回的文本可下载保留，核对后手动整理。", "response_text": content[:1000000] if isinstance(content, str) else "", "finish_reason": reason}) from None
 
 
 def make_router(store, gateway):
@@ -302,6 +332,10 @@ def make_router(store, gateway):
     def fork(pid: str, data: dict):
         return store.fork(pid, data)
 
+    @router.post("/projects/{pid}/branches/{bid}/delete")
+    def delete_branch(pid: str, bid: str, data: dict):
+        return store.delete_branch(pid, bid, data)
+
     @router.post("/projects/{pid}/versions")
     def version(pid: str, data: dict, request: WebRequest = None):
         actor = request.state.user if request else None
@@ -317,7 +351,7 @@ def make_router(store, gateway):
                 raise HTTPException(400, "历史稿件请整理到对应创作阶段后确认。")
             return store.append(pid, bid, head, "确认：" + LABELS[stage], "已确认当前成果及其上游依据。", route["documents"][stage]["text"], "manual", "", {}, actor, stage, "confirm")
         if action == "edit":
-            document = text_field(data, "document", 8000 if stage == "brief" else 50000)
+            document = text_field(data, "document", 8000 if stage == "brief" else 500000)
             instruction = text_field(data, "instruction", 4000, "人工编辑")
             return store.append(pid, bid, head, instruction, "人工编辑已保存为新版本。", document, "manual", "", {}, actor, stage)
         if action != "chat":

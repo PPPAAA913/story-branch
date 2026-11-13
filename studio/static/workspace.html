@@ -2,14 +2,14 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Story Branch · 短剧创作工作台</title><link rel="stylesheet" href="/static/workspace.css"></head>
 <body>
-<header><a class="brand" href="/">✦ <span>Story Branch<small>海外短剧 · 人机协同创作</small></span></a><div class="header-actions"><span id="user-name" class="muted small"></span><button id="logout-button">退出</button><span id="mode" class="badge">加载中</span><button id="library-button">提示词库</button><button id="settings-button">模型设置</button></div></header>
+<header><a class="brand" href="/">✦ <span>Story Branch<small>海外短剧 · 人机协同创作</small></span></a><div class="header-actions"><label class="theme-label" for="theme-select">外观</label><select id="theme-select" aria-label="界面主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select><span id="user-name" class="muted small"></span><button id="logout-button">退出</button><span id="mode" class="badge">加载中</span><button id="library-button">提示词库</button><button id="settings-button">模型设置</button></div></header>
 <div id="notice" role="status" aria-live="polite"></div>
 <main class="layout">
   <aside class="sidebar">
     <div class="label-row"><h2>创作项目</h2><button id="new-button" class="primary">＋ 新建</button></div>
     <div id="projects" class="item-list"></div>
     <section id="branch-section" hidden><h2>创作流程</h2><nav id="stages" aria-label="创作阶段"></nav><div class="label-row"><h2>故事分支</h2><button id="fork-button">＋ 分支</button></div><p class="muted small">从当前查看的版本分叉，自由尝试另一种可能。</p><div id="branches" class="item-list"></div>
-    <h2>版本轨迹</h2><div id="versions" class="version-list"></div></section>
+    <details class="history-nav" open><summary>历史导航 <span id="version-count"></span></summary><p class="muted small">滚动回看；右侧对照区用于比较稿件。</p><div id="versions" class="version-list" tabindex="0" aria-label="历史版本滚动列表"></div></details></section>
     <footer><span>SYE 6602 · 创作实验室</span><span>小组共享空间 · 保存版本记录作者</span></footer>
   </aside>
   <section class="conversation">
@@ -18,7 +18,7 @@
       <div class="session-head"><div><div class="eyebrow" id="branch-label"></div><h1 id="project-title"></h1></div><button id="refresh-button">刷新</button></div>
       <details class="brief"><summary>创作简报</summary><p id="brief-text"></p></details>
       <div id="historical" class="history-banner" hidden>正在查看历史版本。创建分支后可从这里继续创作。</div>
-      <div id="chat" class="chat" aria-live="polite"></div>
+      <details id="failed-response" hidden><summary>上次未保存的模型返回</summary><p class="muted small">这段内容未通过校验，不会自动覆盖稿件。请下载保留，再核对整理。</p><button id="download-failed" type="button">下载未保存内容</button><pre id="failed-text"></pre></details><div id="chat" class="chat" aria-live="polite"></div>
       <form id="chat-form" class="composer">
         <div class="label-row"><label for="writing-mode">本轮任务</label><select id="writing-mode"><option value="write">创作 / 修改稿件</option><option value="discuss">只讨论，不改稿</option><option value="critique">只审阅，不改稿</option><option value="polish">英文对白润色</option></select></div>
         <p id="writing-hint" class="muted small"></p><details class="writing-methods"><summary>本阶段写作方法与来源</summary><div id="writing-methods"></div></details>
@@ -44,7 +44,7 @@
 故事种子：年轻制片人发现，竞争对手曾匿名帮助过自己。
 制作限制：4 位主要演员，2 个主要场景；每集约 90 秒。
 阶段目标：三个故事方向、三集大纲、第一集剧本。</textarea></label><button class="primary" type="submit">创建项目</button></form></dialog>
-<dialog id="settings-dialog"><form id="settings-form" autocomplete="off"><div class="label-row"><h2>模型连接</h2><button type="button" data-close="settings-dialog">关闭</button></div><p class="muted">样例模式验证流程；DeepSeek 模式生成真实内容。</p><label>模式<select id="provider"><option value="demo">样例模式 · 无 API 调用</option><option value="deepseek">DeepSeek</option></select></label><label>模型名称<input id="model-name" value="deepseek-flash" required maxlength="100"></label><label>DeepSeek API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="填写密钥；留空则保留当前配置"></label><p id="key-status" class="muted small"></p><p class="muted small">密钥保存在服务端；界面配置仅在当前进程有效，重启后恢复服务器环境配置。保存设置不发起模型调用；发送创作需求时会调用并按账户计费。</p><div class="label-row"><button id="clear-key" type="button">清除密钥并使用样例</button><button class="primary" type="submit">保存配置</button></div></form></dialog>
+<dialog id="settings-dialog"><form id="settings-form" autocomplete="off"><div class="label-row"><h2>模型连接</h2><button type="button" data-close="settings-dialog">关闭</button></div><p class="muted">样例模式验证流程；DeepSeek 模式生成真实内容。</p><label>模式<select id="provider"><option value="demo">样例模式 · 无 API 调用</option><option value="deepseek">DeepSeek</option></select></label><label>模型名称<input id="model-name" value="deepseek-flash" required maxlength="100"></label><label>单次输出上限（token）<input id="max-tokens" type="number" min="1024" max="393216" step="1" value="81920" required></label><p class="muted small">默认81920，是原上限的10倍；这是最大允许长度，不是最低生成长度。长输出可能更慢、费用更高，实际还受模型限制。</p><label>DeepSeek API Key<input id="api-key" type="password" autocomplete="new-password" placeholder="填写密钥；留空则保留当前配置"></label><p id="key-status" class="muted small"></p><p class="muted small">密钥保存在服务端；界面配置仅在当前进程有效，重启后恢复服务器环境配置。保存设置不发起模型调用；发送创作需求时会调用并按账户计费。</p><div class="label-row"><button id="clear-key" type="button">清除密钥并使用样例</button><button class="primary" type="submit">保存配置</button></div></form></dialog>
 <dialog id="library-dialog" class="wide"><div class="label-row"><div><div class="eyebrow">PROMPT LIBRARY</div><h2>创作方法，也可以积累。</h2></div><button data-close="library-dialog">关闭</button></div><p class="muted">内置模板是初始样例，可由小组根据创作任务调整。每次生成都会保存当时的提示词快照。</p><div id="library" class="library-grid"></div></dialog>
 <dialog id="template-dialog"><form id="template-form"><div class="label-row"><h2>另存为小组模板</h2><button type="button" data-close="template-dialog">关闭</button></div><label>模板名称<input id="template-title" maxlength="80" required></label><label>分类<input id="template-category" maxlength="30" value="自定义" required></label><label>提示词<textarea id="template-body" rows="9" maxlength="6000" required></textarea></label><button class="primary" type="submit">保存模板</button></form></dialog>
 <dialog id="fork-dialog"><form id="fork-form"><div class="label-row"><h2>探索一个新分支</h2><button type="button" data-close="fork-dialog">关闭</button></div><p id="fork-source" class="muted"></p><label>分支名称<input id="fork-name" maxlength="80" placeholder="例如：女主主动揭露真相" required></label><button class="primary" type="submit">创建并切换</button></form></dialog>
